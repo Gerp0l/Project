@@ -5,7 +5,7 @@ from random import choice, randint as rnd
 import pygame
 
 
-FPS = 50
+FPS = 30
 
 RED = 0xFF0000
 BLUE = 0x0000FF
