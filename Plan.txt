@@ -1,0 +1,52 @@
+Display:
+	Record
+	Current score
+	Current bonuses
+	Texture Background
+Classes:
+	Gun 
+		Functions:
+			Draw()
+			Move()
+			Shoot()
+		Attributes:
+			V_x
+			x
+			y
+			texture
+	Glybas
+		Functions:
+			Draw()
+			Move()
+			Decay()
+		Attributes:
+			Size
+			Hp
+			texture
+			V_y
+			V_x
+			hittest()
+			x random
+			y random
+	Balls
+		Functions:
+			Draw()
+			Fly()
+		Attributes:
+			x
+			y 
+			V_x
+			V_y
+			texture
+Features:
+	Advertisement
+		Phystech Union
+		Join Profkom
+	Bonuses
+		Bullet speed
+		Machine gun 
+		More bullets per shot
+		Bullet power
+		Gun speed
+		Gun penetration
+		Shield
