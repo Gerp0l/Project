@@ -21,21 +21,22 @@ HEIGHT = 600
 
 direction = False
 
+
 class Gun:
-    def __init__(self, screen: pygame.Surface, x=int(WIDTH/2), y=400):
+    def __init__(self, screen: pygame.Surface, x=int(WIDTH/2)):
         self.screen = screen
         self.x = x
-        self.y = y
+        self.r = 10
+        self.y = HEIGHT - self.r
         self.color = GREY
         self.live = 1
-        self.r = 10
 			
     def move(self, direction):
         if direction:
             if direction == K_RIGHT:
-                self.x += 3
+                self.x += 5
             elif direction == K_LEFT:
-                self.x -= 3
+                self.x -= 5
             
     def draw(self):
         pygame.draw.circle(
@@ -50,10 +51,10 @@ class Ball:
 		self.x = pushka.x
 		self.y = pushka.y
 		self.screen = screen
-		self.vy = -1
+		self.vy = -10
 		self.color = random.choice(GAME_COLORS)
 		self.r = 10
-		self.power = 1
+		self.power = 10
 
 	def draw(self):
 		pygame.draw.circle(
@@ -65,39 +66,33 @@ class Ball:
 		
 	def move(self):
 		self.y += self.vy
-            
-        
 		
 class Rock:
-	
 	def __init__(self, screen):
 		self.screen = screen
 		self.level = random.randint(1, 5)
 		self.r = self.level * 10
 		self.x = random.randint(self.r, WIDTH - self.r)
-		self.y = 0
-		self.vy = 10
-		self.vx = 0
+		self.y = 20
+		self.vy = 0
 		self.color = GREY
-		self.HP = self.level * 100
-		
-	def new_rock(self):
-		self.level -= 1
-		self.r = self.level * 10
-		self.HP = self.level * 100
-
+		self.HP = self.level * 50
+		self.flag = 0
+		self.max_vy = 0
+            
 	def move(self):
 		self.y += self.vy
-		self.x += self.vx
 		if self.y >= HEIGHT - self.r:
 			self.y = HEIGHT - self.r
 			self.vy = -self.vy
-		if self.x >= WIDTH - self.r:
-			self.x = WIDTH - self.r
-			self.vx = -self.vx
-		if self.x <= self.r:
-			self.x = self.r
-			self.vx = -self.vx
+			if self.y >= HEIGHT - self.r - 2 and not self.flag:
+				self.max_vy = abs(self.vy)
+			self.flag = 1
+		if not self.flag:
+			self.vy += 1
+		
+            
+               
 			
 	def draw(self):
 		pygame.draw.circle(
@@ -113,38 +108,44 @@ class Rock:
 			return False
 	
 pygame.init()
+
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 balls = []
 rocks = []
-
-
-clock = pygame.time.Clock()
 gun = Gun(screen)
-rock = Rock(screen)
-rocks.append(rock)
 finished = False
 
+clock = pygame.time.Clock()
+next_shoot_time = pygame.time.get_ticks()
+next_spawn_time = pygame.time.get_ticks()
+
 def shoot(pushka):
-    global balls
-    delta_shoot_time = 10000
-    current_time = pygame.time.get_ticks()
-    next_shoot_time = current_time
+    global balls, next_shoot_time, current_time
+    delta_shoot_time = 500
     if current_time >= next_shoot_time:
         new_ball = Ball(screen, pushka)
         balls.append(new_ball)
         next_shoot_time = current_time + delta_shoot_time
-    print(current_time, next_shoot_time)
-      
-
+    
+def spawn_rock():
+    global rocks, next_spawn_time, current_time
+    delta_spawn_time = 5000
+    if current_time >= next_spawn_time:
+        new_rock = Rock(screen)
+        rocks.append(new_rock)
+        next_spawn_time = current_time + delta_spawn_time
+            
 while not finished:
+    current_time = pygame.time.get_ticks()
     screen.fill(WHITE)
+    spawn_rock()
     shoot(gun)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             finished = True
         if gun.live == 0:
             finished = True
-            
+			
     if event.type == KEYDOWN: 
         direction = event.key
     if event.type == KEYUP:  
@@ -155,18 +156,22 @@ while not finished:
         r.move()
         if r.hittest(gun):
             gun.live = 0
+        for b in balls:
+            if r.hittest(b):
+                r.HP -= b.power
+                balls.remove(b)
         if r.HP == 0:
-            rocks.pop(r)
+            rocks.remove(r)
             
     for b in balls:
         b.draw()
         b.move()
+        if b.y < 0:
+            balls.remove(b)
     
     gun.draw()
     gun.move(direction)
-              
     pygame.display.update()
     clock.tick(FPS)
-    
 	        	
 pygame.quit()
