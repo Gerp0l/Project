@@ -19,16 +19,14 @@ WIDTH = 400
 HEIGHT = 600
 
 class Gun:
-    def __init__(self, screen: pygame.Surface, x=int(WIDTH/2)):
+    def __init__(self, screen: pygame.Surface, x = int(WIDTH / 2)):
         self.screen = screen
-        self.x = x
         self.r = 15
-        self.y = HEIGHT - self.r
+        self.x, self.y = x, HEIGHT - self.r
         self.color = GREY
         self.live = 1
         self.speed = 5
-        self.bullets = []
-        self.bullets_max = 1
+        self.bullets, self.bullets_max = [], 1
         self.delta_time = 500
 
     def move(self, direction):
@@ -55,12 +53,11 @@ class Ball:
         self.x = pushka.x
         self.maxx = pushka.x
         self.y = pushka.y
-        self.vx = 0
-        self.vy = 0
+        self.vx, self.vy = 0, 0
         self.screen = screen
         self.color = random.choice(GAME_COLORS)
         self.r = 5
-        self.power = 10
+        self.power = 100
 
     def draw(self):
         pygame.draw.circle(
@@ -80,23 +77,37 @@ class Ball:
 class Rock:
     def __init__(self, screen):
         self.screen = screen
-        self.level = random.randint(1, 5)
-        self.r = self.level * 10
+        self.max_level = 11
+        self.level = random.randint(self.max_level - 5, self.max_level)
+        self.r = self.level * 5
         self.x = random.randint(self.r, WIDTH - self.r)
         self.y = - 1.5 * self.r
-        self.vy = 0
+        self.vx, self.vy = 0, 0
         self.color = GREY
         self.HP = self.level * 50
+        self.delta_time = 5000
+        self.touch_bottom = 0
+        self.bonus_id = 0
 
     def move(self):
         self.y += self.vy
+        self.x += self.vx
         self.vy += 0.5
         if self.y >= HEIGHT - self.r:
             self.y = HEIGHT - self.r
             self.vy -= 0.5
-            self.vy = -self.vy
-            self.flag = 1
-
+            if self.touch_bottom:
+                self.vy = -self.vy
+            else:
+                self.vy = -0.9 * self.vy
+                self.touch_bottom = 1
+        if self.x <= self.r:
+            self.x = self.r
+            self.vx = -self.vx
+        if self.x >= WIDTH - self.r:
+            self.x = WIDTH - self.r
+            self.vx = -self.vx
+                
     def draw(self):
         pygame.draw.circle(
             self.screen,
@@ -105,7 +116,7 @@ class Rock:
             self.r)
         
     def hittest(self, obj):
-        if self.x in range(obj.x - obj.r - self.r, obj.x + obj.r + self.r) and self.y in range(obj.y - obj.r - self.r, obj.y + obj.r + self.r):
+        if (obj.x - obj.r - self.r <= self.x  <= obj.x + obj.r + self.r) and (obj.y - obj.r - self.r <= self.y <=obj.y + obj.r + self.r):
             return True
         else:
             return False
@@ -114,21 +125,19 @@ pygame.init()
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
-balls = []
-rocks = []
-max_rocks = 3
-gun = Gun(screen)
+balls, rocks = [], []
+max_rocks = 1
 score = 0
+gun = Gun(screen)
 
 finished = False
 direction = False
 
 clock = pygame.time.Clock()
-next_shoot_time = pygame.time.get_ticks()
-next_spawn_time = pygame.time.get_ticks()
+next_shoot_time, next_spawn_time = pygame.time.get_ticks(), pygame.time.get_ticks()
 
 def charge(pushka):
-    if len(pushka.bullets) == 0:
+    if len(pushka.bullets) == 0 and pushka.bullets_max > 1:
         for b in range(pushka.bullets_max):
             b = Ball(screen, pushka)
             pushka.bullets.append(b)
@@ -148,31 +157,48 @@ def position(pushka):
 def shoot(pushka):
     global balls, next_shoot_time, current_time
     if current_time >= next_shoot_time:
-        delta_shoot_time = pushka.delta_time
-        for b in pushka.bullets:
-            b.y = pushka.y
-            b.x = pushka.x
-            b.vy = -10
-        balls += pushka.bullets
-        pushka.bullets.clear()
-        next_shoot_time = current_time + delta_shoot_time
-
-def spawn_ball(pushka):
-    global balls, next_shoot_time, current_time
-    if current_time >= next_shoot_time:
-        delta_shoot_time = pushka.delta_time
-        new_ball = Ball(screen, pushka)
-        new_ball.vy = -10
-        balls.append(new_ball)
-        next_shoot_time = current_time + delta_shoot_time
+        if pushka.bullets_max > 1:
+            for b in pushka.bullets:
+                b.y = pushka.y
+                b.x = pushka.x
+                b.vy = -10
+            balls += pushka.bullets
+            pushka.bullets.clear()
+        else:
+            new_ball = Ball(screen, pushka)
+            new_ball.vy = -10
+            balls.append(new_ball)
+        next_shoot_time = current_time + pushka.delta_time
     
 def spawn_rock():
     global rocks, next_spawn_time, current_time
-    delta_spawn_time = 5000
     if current_time >= next_spawn_time and len(rocks) < max_rocks:
         new_rock = Rock(screen)
         rocks.append(new_rock)
-        next_spawn_time = current_time + delta_spawn_time
+        next_spawn_time = current_time + new_rock.delta_time
+
+def collide():
+    global rocks, balls
+    for r in rocks:
+        if r.hittest(gun):
+            gun.live = 0
+        for b in balls:
+            if r.hittest(b):
+                r.HP -= b.power
+                r.vx -= ((r.max_level + 1) - r.level)*(r.x - b.x) * b.vy * 0.0005
+                balls.remove(b)
+            
+def decay(rock):
+    global rocks
+    if rock.HP <= 0 and r.level > (r.max_level - 5):
+        new_rock1, new_rock2 = Rock(screen), Rock(screen)
+        new_rock1.level, new_rock2.level = r.level - 1, r.level - 1
+        new_rock1.x, new_rock2.x = r.x, r.x
+        new_rock1.y, new_rock2.y = r.y, r.y
+        new_rock1.vx, new_rock2.vx = -2, 2
+        new_rock1.vy, new_rock2.vy = 2, 2
+        rocks.append(new_rock1)
+        rocks.append(new_rock2)
 
 def bonuses(bonus_id, pushka, bullets):
     if bonus_id == 1:
@@ -189,17 +215,16 @@ while not finished:
     screen.fill(WHITE)
     
     spawn_rock()
+    
     gun.draw()
     gun.move(direction)
     
-    if gun.bullets_max > 1:
-        charge(gun)
-        position(gun)
-        shoot(gun)
-    else:
-        spawn_ball(gun)
+    charge(gun)
+    position(gun)
+    shoot(gun)
 
-    
+    collide()
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             finished = True
@@ -210,24 +235,19 @@ while not finished:
         if event.type == KEYUP:  
             direction = False
 
-    for r in rocks:
-        r.draw()
-        r.move()
-        if r.hittest(gun):
-            gun.live = 0
-        for b in balls:
-            if r.hittest(b):
-                r.HP -= b.power
-                balls.remove(b)
-        if r.HP == 0:
-            score += r.level * 10
-            rocks.remove(r)
-            
     for b in balls:
         b.draw()
         b.move()
         if b.y < 0:
             balls.remove(b)
+
+    for r in rocks:
+        r.draw()
+        r.move()
+        if r.HP <= 0:
+            score += r.level * 10
+            decay(r)
+            rocks.remove(r)
 
     font = pygame.font.Font('/Users/zakhararonovich/Desktop/MIPT/GitHub/Project/Palatino.ttc', 25)
     score_text = font.render(f'Score: {score}', True, (0, 0, 0))
