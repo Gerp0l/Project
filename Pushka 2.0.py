@@ -19,6 +19,9 @@ GAME_COLORS = [RED, BLUE, YELLOW, GREEN, MAGENTA, CYAN]
 
 WIDTH = 500
 HEIGHT = 700
+gravity=0.5
+spawn_k=1.5
+after_decay_speed_y=-5
 
 class Gun:
     def __init__(self, screen: pygame.Surface, x = int(WIDTH / 2)):
@@ -79,14 +82,14 @@ class Ball:
 class Rock:
     def __init__(self, screen):
         self.screen = screen
-        self.max_level = 11
-        self.level = random.randint(self.max_level - 5, self.max_level)
-        self.r = self.level * 5
+        self.max_level = 5
+        self.level = random.randint(self.max_level - 4, self.max_level)
+        self.r = round((self.level*900)**0.5)
         self.x = random.randint(self.r, WIDTH - self.r)
-        self.y = - 1.5 * self.r
+        self.y = spawn_k * self.r
         self.vx, self.vy = 0, 0
         self.color = GREY
-        self.HP = self.level * 50
+        self.HP = self.level * 100
         self.delta_time = 5000
         self.touch_bottom = 0
         self.bonus_id = 0
@@ -94,15 +97,11 @@ class Rock:
     def move(self):
         self.y += self.vy
         self.x += self.vx
-        self.vy += 0.5
+        self.vy += gravity
         if self.y >= HEIGHT - self.r:
             self.y = HEIGHT - self.r
-            self.vy -= 0.5
-            if self.touch_bottom:
-                self.vy = -self.vy
-            else:
-                self.vy = -0.9 * self.vy
-                self.touch_bottom = 1
+            self.vy -= gravity
+            self.vy = -(2*gravity*(HEIGHT-self.r*(1+spawn_k)))**0.5
         if self.x <= self.r:
             self.x = self.r
             self.vx = -self.vx
@@ -189,18 +188,16 @@ def collide():
         for b in balls:
             if r.hittest(b):
                 r.HP -= b.power
-                r.vx -= ((r.max_level + 1) - r.level)*(r.x - b.x) * b.vy * 0.0005
                 balls.remove(b)
             
 def decay(rock):
-    global rocks
-    if rock.HP <= 0 and r.level > (r.max_level - 5):
+    if  rock.level > (r.max_level - 4):
         new_rock1, new_rock2 = Rock(screen), Rock(screen)
-        new_rock1.level, new_rock2.level = r.level - 1, r.level - 1
-        new_rock1.x, new_rock2.x = r.x, r.x
-        new_rock1.y, new_rock2.y = r.y, r.y
-        new_rock1.vx, new_rock2.vx = -2, 2
-        new_rock1.vy, new_rock2.vy = 2, 2
+        new_rock1.level, new_rock2.level = rock.level - 1, rock.level - 1
+        new_rock1.x, new_rock2.x = rock.x, rock.x
+        new_rock1.y, new_rock2.y = rock.y, rock.y
+        new_rock1.vx, new_rock2.vx = -1, 1
+        new_rock1.vy, new_rock2.vy = after_decay_speed_y, after_decay_speed_y
         rocks.append(new_rock1)
         rocks.append(new_rock2)
 
