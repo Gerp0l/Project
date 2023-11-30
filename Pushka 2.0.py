@@ -1,3 +1,5 @@
+# Перед запуском нужно зайти в консоли в папку Project, чтобы программа могла считывать файлы из этой папки.
+# Нужно вписать туда cd [путь к папке] без квадратных скобок
 import random
 import pygame
 from pygame.locals import *
@@ -15,8 +17,8 @@ BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GAME_COLORS = [RED, BLUE, YELLOW, GREEN, MAGENTA, CYAN]
 
-WIDTH = 400
-HEIGHT = 600
+WIDTH = 500
+HEIGHT = 700
 
 class Gun:
     def __init__(self, screen: pygame.Surface, x = int(WIDTH / 2)):
@@ -124,6 +126,8 @@ class Rock:
 pygame.init()
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Пушка 2.0")
+pygame.display.set_icon(pygame.image.load("Скала.bmp"))
 
 balls, rocks = [], []
 max_rocks = 1
@@ -249,10 +253,9 @@ while not finished:
             decay(r)
             rocks.remove(r)
 
-    font = pygame.font.Font('/Users/zakhararonovich/Desktop/MIPT/GitHub/Project/Palatino.ttc', 25)
+    font = pygame.font.Font('Palatino.ttc', 25)
     score_text = font.render(f'Score: {score}', True, (0, 0, 0))
     screen.blit(score_text, (15, 5))
-    
     pygame.display.update()
     clock.tick(FPS)
 
