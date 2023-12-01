@@ -76,10 +76,9 @@ class Ball:
             self.vx = 0 
 
 class Rock:
-    def __init__(self, screen):
+    def __init__(self, screen, level = random.randint(1, 5)):
         self.screen = screen
-        self.max_level = 5
-        self.level = random.randint(self.max_level - 4, self.max_level)
+        self.level = level
         self.r = round((self.level*900)**0.5)
         self.x = random.randint(self.r, WIDTH - self.r)
         self.y = spawn_k * self.r
@@ -118,6 +117,61 @@ class Rock:
         else:
             return False
     
+class Button:
+    def __init__(self, screen, x, y, text, active_color, inactive_color):
+        self.screen = screen
+        self.x, self.y = x, y
+        self.text = text
+        self.width, self.height = (
+            self.parameters(self.text)[0],
+            self.parameters(self.text)[1],
+        )
+        self.inactive_color = inactive_color
+        self.active_color = active_color
+
+    def parameters(
+        self,
+        text,
+        font="/Users/zakhararonovich/Desktop/MIPT/GitHub/Project/Palatino.ttc",
+        font_size=25,
+        font_color=(0, 0, 0),
+    ):
+        font = pygame.font.Font(font, font_size)
+        message = font.render(text, True, font_color)
+        messageRect = message.get_rect()
+        return [messageRect.width, messageRect.height]
+
+    def draw(self, action=None):
+        mouse = pygame.mouse.get_pos()
+        click = pygame.mouse.get_pressed()
+        if (self.x - self.width // 2 < mouse[0] < self.x + self.width // 2) and (
+            self.y - self.height // 2 < mouse[1] < self.y + self.height // 2
+        ):
+            pygame.draw.rect(
+                screen,
+                self.active_color,
+                (
+                    self.x - self.width // 2,
+                    self.y - self.height // 2,
+                    self.width,
+                    self.height,
+                ),
+            )
+            if action is not None and click[0] == 1:
+                action()
+        else:
+            pygame.draw.rect(
+                screen,
+                self.inactive_color,
+                (
+                    self.x - self.width // 2,
+                    self.y - self.height // 2,
+                    self.width,
+                    self.height,
+                ),
+            )
+        print_text(self.text, self.x, self.y)
+
 pygame.init()
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -134,12 +188,26 @@ balls, rocks = [], []
 max_rocks = 1
 score = 0
 
-
 finished = False
 direction = False
 
 clock = pygame.time.Clock()
 next_shoot_time, next_spawn_time = pygame.time.get_ticks(), pygame.time.get_ticks()
+
+def print_text(
+    text,
+    x,
+    y,
+    font_color=(0, 0, 0),
+    font="/Users/zakhararonovich/Desktop/MIPT/GitHub/Project/Palatino.ttc",
+    font_size=25,
+):
+    font = pygame.font.Font(font, font_size)
+    message = font.render(text, True, font_color)
+    messageRect = message.get_rect()
+    messageRect.topleft = (x - messageRect.width // 2, y - messageRect.height // 2)
+    screen.blit(message, messageRect)
+
 
 def charge(pushka):
     if len(pushka.bullets) == 0 and pushka.bullets_max > 1:
@@ -186,14 +254,14 @@ def collide():
     global rocks, balls
     for r in rocks:
         if r.hittest(gun):
-            gun.live = 0
+            gun.live -= 1
         for b in balls:
             if r.hittest(b):
                 r.HP -= b.power
                 balls.remove(b)
             
 def decay(rock):
-    if  rock.level > (r.max_level - 4):
+    if  rock.level > 1:
         new_rock1, new_rock2 = Rock(screen), Rock(screen)
         new_rock1.level, new_rock2.level = rock.level - 1, rock.level - 1
         new_rock1.x, new_rock2.x = rock.x, rock.x
@@ -211,34 +279,19 @@ def bonuses(bonus_id, pushka, bullets):
             b.vy *= 1.5
     elif bonus_id == 3:
         pushka.bullets_max *= 2
+    
+def finish():
+    global finished
+    finished = True
 
-def scorec():
-    score_text = font.render(f'Score: {score}', True, (0, 0, 0))
-    screen.blit(score_text, (15, 5))
-    clock.tick(FPS)
-
-while not finished:
+def main():
+    global score, current_time
+    gun.live = 1
     current_time = pygame.time.get_ticks()
-    
-    screen.fill(WHITE)
-    
-    spawn_rock()
-    
-    gun.move()
-
-    
-    charge(gun)
-    # position(gun)
-    shoot(gun)
-
-    collide()
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            finished = True
-        if gun.live == 0:
-            finished = True    
-
+    print_text(f"Score: {score}", 70, 20)
+    spawn_rock(), gun.move(), charge(gun), shoot(
+        gun
+    ), collide()
 
     for b in balls:
         b.draw()
@@ -253,8 +306,47 @@ while not finished:
             score += r.level * 10
             decay(r)
             rocks.remove(r)
-    scorec()
+
+
+while not finished:
+    screen.fill(WHITE)
+    if gun.live:
+        main()
+    else:
+        rocks.clear()
+        balls.clear()
+        print_text("POTRACHENO", WIDTH // 2, 100, font_size=50)
+        button_restart = Button(
+            screen,
+            WIDTH // 2,
+            HEIGHT // 2 + 40,
+            "RESTART",
+            (226, 135, 67),
+            (234, 182, 118),
+        )
+        button_exit = Button(
+            screen,
+            WIDTH // 2,
+            HEIGHT // 2 + 80,
+            "EXIT",
+            (226, 135, 67),
+            (234, 182, 118),
+        )
+        button_restart.draw(main)
+        button_exit.draw(finish)
+
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            finished = True
+        if event.type == KEYDOWN:
+            direction = event.key
+        if event.type == KEYUP:
+            direction = False
+
     screen.blit(gun_surf, gun_surf.get_rect(center=(gun.x, HEIGHT-15)))
     pygame.display.update()
+    clock.tick(FPS)
+
 
 pygame.quit()
