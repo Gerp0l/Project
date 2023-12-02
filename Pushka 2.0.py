@@ -30,7 +30,8 @@ class Gun:
     def __init__(self, screen: pygame.Surface, x=WIDTH // 2):
         self.r = 15
         self.x, self.y = x, HEIGHT - self.r
-        self.live = 1
+        self.live = 3
+        self.live_max = 3
         self.speed = 5
         self.bullets, self.bullets_max = [], 1
         self.delta_time = 50
@@ -70,18 +71,18 @@ class Ball:
 
 
 class Rock:
-    def __init__(self, screen, parent_level):
+    def __init__(self, screen, parent_level, parent_luck):
         self.screen = screen
         self.level = self.leveling(parent_level)
+        self.luck = self.set_luck(parent_luck)
+        self.bonus = None
         self.r = round((self.level * 900) ** 0.5)
         self.x = random.randint(self.r, WIDTH - self.r)
         self.y = spawn_k * self.r
         self.vx, self.vy = 0, 0
-        self.color = GREY
         self.HP = self.level * 1000
         self.delta_time = 1000
-        self.touch_bottom = 0
-        self.bonus_id = 0
+        self.color = GREY
 
     def move(self):
         self.y += self.vy
@@ -114,6 +115,12 @@ class Rock:
             return random.randint(1, 5)
         else:
             return parent_level - 1
+
+    def set_luck(self, parent_luck):
+        if parent_luck == None:
+            return int(-10 * random.random() + level)
+        else:
+            return int(-10 * random.random() + level + abs(parent_luck))
 
 
 class Button:
@@ -185,19 +192,20 @@ gun_surf = pygame.transform.scale(
 )
 gun = Gun(gun_surf)
 
-
 balls, rocks = [], []
 
-max_rocks = 1
-record = 0
-score = 0
+record, score = 0, 0
+level, max_rocks = 1, 1
 
-finished = False
-started = False
+finished, started = False, False
 direction = False
 
 clock = pygame.time.Clock()
-next_shoot_time, next_spawn_time = pygame.time.get_ticks(), pygame.time.get_ticks()
+next_shoot_time, next_spawn_time, next_bonus_time = (
+    pygame.time.get_ticks(),
+    pygame.time.get_ticks(),
+    pygame.time.get_ticks(),
+)
 
 
 def print_text(
@@ -253,18 +261,24 @@ def shoot(pushka):
 
 
 def spawn_rock():
-    global rocks, next_spawn_time, current_time
-    if current_time >= next_spawn_time and len(rocks) < max_rocks:
-        new_rock = Rock(screen, None)
+    global rocks, next_spawn_time, current_time, max_rocks
+    if current_time >= next_spawn_time and len(rocks) <= max_rocks - 1:
+        new_rock = Rock(screen, None, None)
         rocks.append(new_rock)
         next_spawn_time = current_time + new_rock.delta_time
 
 
+last_collide = pygame.time.get_ticks()
+collide_cooldown = 300
+
+
 def collide():
-    global rocks, balls
+    global rocks, balls, collide_cooldown, current_time, last_collide
     for r in rocks:
         if r.hittest(gun):
-            gun.live -= 1
+            if current_time - last_collide >= collide_cooldown:
+                gun.live -= 1
+                last_collide = current_time
         for b in balls:
             if r.hittest(b):
                 r.HP -= b.power
@@ -273,7 +287,9 @@ def collide():
 
 def decay(rock):
     if rock.level > 1:
-        new_rock1, new_rock2 = Rock(screen, rock.level), Rock(screen, rock.level)
+        new_rock1, new_rock2 = Rock(screen, rock.level, rock.luck), Rock(
+            screen, rock.level, rock.luck
+        )
         new_rock1.x, new_rock2.x = rock.x, rock.x
         new_rock1.y, new_rock2.y = rock.y, rock.y
         new_rock1.vx, new_rock2.vx = -after_decay_speed_x, after_decay_speed_x
@@ -282,14 +298,66 @@ def decay(rock):
         rocks.append(new_rock2)
 
 
-def bonuses(bonus_id, pushka, bullets):
-    if bonus_id == 1:
-        pushka.speed *= 1.5
-    elif bonus_id == 2:
-        for b in bullets:
-            b.vy *= 1.5
-    elif bonus_id == 3:
-        pushka.bullets_max *= 2
+active_bonuses = []
+arr_bonuses = ["gun_speed_up", "b_power_up", "b_max_up", "extra_live"]
+
+
+def bonuses(bonus_id):
+    global level, active_bonuses, next_bonus_time, current_time
+    bonus_delta_time = 10000
+    if (
+        active_bonuses.count(bonus_id) < 3
+        and bonus_id in arr_bonuses
+        and current_time >= next_bonus_time
+    ):
+        if bonus_id == "gun_speed_up":
+            gun.speed *= 1.5
+        elif bonus_id == "b_max_up":
+            gun.bullets_max *= 2
+        elif bonus_id == "b_power_up":
+            for b in gun.bullets:
+                b.power *= 1.5
+        elif bonus_id == "extra_live":
+            if gun.live < gun.live_max:
+                gun.live += 1
+            else:
+                gun.live += 1
+                gun.live_max += 1
+        active_bonuses.append(bonus_id)
+        next_bonus_time = current_time + (bonus_delta_time / (level * 10))
+
+
+def bonuses_clear():
+    global active_bonuses
+    for bonus_id in active_bonuses:
+        if bonus_id == "gun_speed_up":
+            gun.speed /= 1.5
+        elif bonus_id == "b_max_up":
+            gun.bullets_max /= 2
+        elif bonus_id == "b_speed_up":
+            for b in gun.bullets:
+                b.speed /= 1.5
+        elif bonus_id == "b_power_up":
+            for b in gun.bullets:
+                b.power /= 1.5
+        elif bonus_id == "extra_live":
+            if gun.live_max > 3:
+                gun.live_max -= 1
+            if gun.live > 3:
+                gun.live -= 1
+
+    active_bonuses.clear()
+
+
+def hearts():
+    for i in range(gun.live_max):
+        empty_heart = pygame.image.load("empty_heart.png").convert_alpha()
+        empty_heart = pygame.transform.scale(empty_heart, (30, 30))
+        screen.blit(empty_heart, (20 + 30 * i, 40))
+        for j in range(gun.live):
+            full_heart = pygame.image.load("full_heart.png").convert_alpha()
+            full_heart = pygame.transform.scale(full_heart, (30, 30))
+            screen.blit(full_heart, (20 + 30 * j, 40))
 
 
 def start():
@@ -303,9 +371,10 @@ def finish():
 
 
 def restart():
-    global score
+    global score, active_bonuses, current_time
+    gun.live = gun.live_max
     score = 0
-    main()
+    bonuses_clear(), main()
 
 
 def start_menu():
@@ -348,11 +417,12 @@ def end_menu():
 
 
 def main():
-    global score, current_time
-    gun.live = 1
+    global score, current_time, max_rocks, level
+    level = 1 + score // 150
+    max_rocks = level
     current_time = pygame.time.get_ticks()
     print_text(f"Score: {score}", 70, 20)
-    spawn_rock(), gun.move(), charge(gun), shoot(gun), collide()
+    spawn_rock(), gun.move(), charge(gun), shoot(gun), collide(), hearts()
 
     for b in balls:
         b.draw()
@@ -366,6 +436,8 @@ def main():
         if r.HP <= 0:
             score += r.level * 10
             decay(r)
+            if r.luck in range(1, 5):
+                bonuses(random.choice(arr_bonuses))
             rocks.remove(r)
 
 
