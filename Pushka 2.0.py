@@ -51,7 +51,7 @@ class Ball:
     def __init__(self, screen, pushka):
         self.x = pushka.x
         self.maxx = pushka.x
-        self.y = pushka.y - 2 * pushka.r        
+        self.y = pushka.y - 2 * pushka.r
         self.vx, self.vy = 0, 0
         self.screen = screen
         self.color = random.choice(GAME_COLORS)
@@ -108,12 +108,13 @@ class Rock:
             return True
         else:
             return False
-        
+
     def leveling(self, parent_level):
         if parent_level == None:
             return random.randint(1, 5)
         else:
             return parent_level - 1
+
 
 class Button:
     def __init__(self, screen, x, y, text, active_color, inactive_color):
@@ -192,6 +193,7 @@ record = 0
 score = 0
 
 finished = False
+started = False
 direction = False
 
 clock = pygame.time.Clock()
@@ -290,14 +292,60 @@ def bonuses(bonus_id, pushka, bullets):
         pushka.bullets_max *= 2
 
 
+def start():
+    global started
+    started = True
+
+
 def finish():
     global finished
     finished = True
+
 
 def restart():
     global score
     score = 0
     main()
+
+
+def start_menu():
+    global record
+    print_text("Pushka 2.0", WIDTH // 2, 50, font_size=50)
+    button_start = Button(
+        screen, WIDTH // 2, HEIGHT // 2, "START", (226, 135, 67), (234, 182, 118)
+    )
+    button_start.draw(start)
+
+
+def end_menu():
+    global score, record
+    rocks.clear(), balls.clear()
+    print_text("POTRACHENO", WIDTH // 2, 100, font_size=50)
+    print_text(f"SCORE: {score}", WIDTH // 2, 250, font_size=40)
+    if score >= record and score != 0:
+        print_text("NEW RECORD!", WIDTH // 2, 200, font_size=40)
+        record = score
+    else:
+        print_text(f"RECORD: {record}", WIDTH // 2, 200, font_size=40)
+    button_restart = Button(
+        screen,
+        WIDTH // 2,
+        HEIGHT // 2 + 40,
+        "RESTART",
+        (226, 135, 67),
+        (234, 182, 118),
+    )
+    button_exit = Button(
+        screen,
+        WIDTH // 2,
+        HEIGHT // 2 + 80,
+        "EXIT",
+        (226, 135, 67),
+        (234, 182, 118),
+    )
+    button_restart.draw(restart)
+    button_exit.draw(finish)
+
 
 def main():
     global score, current_time
@@ -323,34 +371,12 @@ def main():
 
 while not finished:
     screen.fill(WHITE)
-    if gun.live:
+    if not started:
+        start_menu()
+    elif gun.live and started:
         main()
     else:
-        rocks.clear()
-        balls.clear()
-        print_text("POTRACHENO", WIDTH // 2, 100, font_size=50)
-        print_text(f"SCORE: {score}", WIDTH // 2, 250, font_size=40)
-        if score >= record and score != 0:
-            print_text("NEW RECORD!", WIDTH // 2, 200, font_size=40)
-            record = score
-        button_restart = Button(
-            screen,
-            WIDTH // 2,
-            HEIGHT // 2 + 40,
-            "RESTART",
-            (226, 135, 67),
-            (234, 182, 118),
-        )
-        button_exit = Button(
-            screen,
-            WIDTH // 2,
-            HEIGHT // 2 + 80,
-            "EXIT",
-            (226, 135, 67),
-            (234, 182, 118),
-        )
-        button_restart.draw(restart)
-        button_exit.draw(finish)
+        end_menu()
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
