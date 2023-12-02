@@ -27,7 +27,7 @@ after_decay_speed_y = -5
 
 
 class Gun:
-    def __init__(self, screen: pygame.Surface, x=int(WIDTH / 2)):
+    def __init__(self, screen: pygame.Surface, x=WIDTH // 2):
         self.r = 15
         self.x, self.y = x, HEIGHT - self.r
         self.live = 1
@@ -51,7 +51,7 @@ class Ball:
     def __init__(self, screen, pushka):
         self.x = pushka.x
         self.maxx = pushka.x
-        self.y = pushka.y
+        self.y = pushka.y - 2 * pushka.r        
         self.vx, self.vy = 0, 0
         self.screen = screen
         self.color = random.choice(GAME_COLORS)
@@ -186,6 +186,7 @@ gun = Gun(gun_surf)
 
 
 balls, rocks = [], []
+
 max_rocks = 1
 record = 0
 score = 0
