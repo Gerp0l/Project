@@ -25,7 +25,6 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
 pygame.display.set_caption("Пушка 2.0")
 pygame.display.set_icon(pygame.image.load("Скала.bmp"))
-font = pygame.font.Font("Palatino.ttc", 25)
 
 
 class Gun:
@@ -120,8 +119,8 @@ class Rock:
 
     def hittest(self, obj):
         if (
-            obj.x - obj.r - 1.1 * self.r <= self.x <= obj.x + obj.r + 1.1 * self.r
-        ) and (obj.y - obj.r - 1.1 * self.r <= self.y <= obj.y + obj.r + 1.1 * self.r):
+            obj.x - obj.r - 0.5 * self.r <= self.x <= obj.x + obj.r + 0.5 * self.r
+        ) and (obj.y - obj.r - 0.5 * self.r <= self.y <= obj.y + obj.r + 0.5 * self.r):
             return True
         else:
             return False
@@ -150,6 +149,12 @@ class Rock:
         rock_surf = pygame.transform.rotate(rock_surf, self.phi)
         screen.blit(rock_surf, rock_surf.get_rect(center=(self.x, self.y)))
 
+        font = pygame.font.Font("Arcade.ttf", int(15 * 1.5**self.level))
+        for b in balls:
+            text = font.render(f"{self.HP // b.power}", True, (255, 255, 255))
+            text = pygame.transform.rotate(text, self.phi)
+        screen.blit(text, (text.get_rect(center=(self.x, self.y))))
+
 
 class Button:
     def __init__(self, screen, x, y, text, active_color, inactive_color):
@@ -166,8 +171,8 @@ class Button:
     def parameters(
         self,
         text,
-        font="Palatino.ttc",
-        font_size=25,
+        font="Arcade.ttf",
+        font_size=45,
         font_color=(0, 0, 0),
     ):
         font = pygame.font.Font(font, font_size)
@@ -204,13 +209,17 @@ class Button:
                     self.height,
                 ),
             )
-        print_text(self.text, self.x, self.y)
+        print_text(
+            self.text, self.x, self.y, (0, 0, 0), font="Arcade.ttf", font_size=40
+        )
 
 
 gun = Gun()
 
 
 balls, rocks = [], []
+
+
 active_bonuses, arr_bonuses = [], [
     "gun_speed_up",
     "b_power_up",
@@ -247,8 +256,8 @@ def print_text(
     x,
     y,
     font_color=(0, 0, 0),
-    font="Palatino.ttc",
-    font_size=25,
+    font="Arcade.ttf",
+    font_size=20,
 ):
     font = pygame.font.Font(font, font_size)
     message = font.render(text, True, font_color)
@@ -404,7 +413,7 @@ def restart():
 
 def start_menu():
     global record
-    print_text("Pushka 2.0", WIDTH // 2, 50, font_size=50)
+    print_text("Pushka 2.0", WIDTH // 2, 50, font_size=40)
     button_start = Button(
         screen, WIDTH // 2, HEIGHT // 2, "START", (226, 135, 67), (234, 182, 118)
     )
@@ -414,17 +423,17 @@ def start_menu():
 def end_menu():
     global score, record
     rocks.clear(), balls.clear()
-    print_text("POTRACHENO", WIDTH // 2, 100, font_size=50)
-    print_text(f"SCORE: {score}", WIDTH // 2, 250, font_size=40)
+    print_text("POTRACHENO", WIDTH // 2, 100, font_size=40)
+    print_text(f"SCORE:{score}", WIDTH // 2, 250, font_size=30)
     if score >= record and score != 0:
-        print_text("NEW RECORD!", WIDTH // 2, 200, font_size=40)
+        print_text("NEW RECORD!", WIDTH // 2, 200, font_size=30)
         record = score
     else:
-        print_text(f"RECORD: {record}", WIDTH // 2, 200, font_size=40)
+        print_text(f"RECORD:{record}", WIDTH // 2, 200, font_size=30)
     button_restart = Button(
         screen,
         WIDTH // 2,
-        HEIGHT // 2 + 40,
+        HEIGHT // 2,
         "RESTART",
         (226, 135, 67),
         (234, 182, 118),
@@ -446,7 +455,11 @@ def main():
     level = 1 + score // 150
     max_rocks = level
     current_time = pygame.time.get_ticks()
-    print_text(f"Score: {score}", 70, 20)
+
+    font = pygame.font.Font("Arcade.ttf", 20)
+    text = font.render(f"Score:{score}", True, (0, 0, 0))
+    text_rect = text.get_rect(topleft=(20, 10))
+    screen.blit(text, text_rect)
     spawn_rock(), gun.draw(), gun.move(), charge(gun), shoot(gun), collide(), hearts()
 
     for b in balls:
