@@ -1,6 +1,3 @@
-# Захар здарова
-# Перед запуском нужно зайти в консоли в папку Project, чтобы программа могла считывать файлы из этой папки.
-# Нужно вписать туда cd [путь к папке] без квадратных скобок
 import random
 import pygame
 from pygame.locals import *
@@ -20,14 +17,22 @@ GAME_COLORS = [RED, BLUE, YELLOW, GREEN, MAGENTA, CYAN]
 
 WIDTH = 500
 HEIGHT = 700
-gravity = 0.5
-spawn_k = 1.5
-after_decay_speed_x = 2
-after_decay_speed_y = -5
+
+
+pygame.init()
+
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+
+pygame.display.set_caption("Пушка 2.0")
+pygame.display.set_icon(pygame.image.load("Скала.bmp"))
+font = pygame.font.Font("Palatino.ttc", 25)
 
 
 class Gun:
-    def __init__(self, screen: pygame.Surface, x=WIDTH // 2):
+    def __init__(
+        self, screen=pygame.image.load("gun.png").convert_alpha(), x=WIDTH // 2
+    ):
+        self.screen = screen
         self.r = 15
         self.x, self.y = x, HEIGHT - self.r
         self.live = 3
@@ -46,6 +51,13 @@ class Gun:
             self.x += self.speed
             if self.x > WIDTH - self.r:
                 self.x = WIDTH - self.r
+
+    def draw(self):
+        gun_surf = self.screen
+        gun_surf = pygame.transform.scale(
+            gun_surf, (gun_surf.get_width() // 10, gun_surf.get_height() // 10)
+        )
+        screen.blit(gun_surf, gun_surf.get_rect(center=(self.x, HEIGHT - 15)))
 
 
 class Ball:
@@ -71,7 +83,12 @@ class Ball:
 
 
 class Rock:
-    def __init__(self, screen, parent_level, parent_luck):
+    def __init__(
+        self,
+        screen=pygame.image.load("rock.png").convert_alpha(),
+        parent_level=None,
+        parent_luck=None,
+    ):
         self.screen = screen
         self.level = self.leveling(parent_level)
         self.luck = self.set_luck(parent_luck)
@@ -82,9 +99,11 @@ class Rock:
         self.vx, self.vy = 0, 0
         self.HP = self.level * 1000
         self.delta_time = 1000
-        self.color = GREY
+        self.phi = random.randint(0, 359)
+        self.omega = random.randint(-3, 3)
 
     def move(self):
+        self.phi += self.omega
         self.y += self.vy
         self.x += self.vx
         self.vy += gravity
@@ -99,20 +118,17 @@ class Rock:
             self.x = WIDTH - self.r
             self.vx = -self.vx
 
-    def draw(self):
-        pygame.draw.circle(self.screen, self.color, (self.x, self.y), self.r)
-
     def hittest(self, obj):
-        if (obj.x - obj.r - self.r <= self.x <= obj.x + obj.r + self.r) and (
-            obj.y - obj.r - self.r <= self.y <= obj.y + obj.r + self.r
-        ):
+        if (
+            obj.x - obj.r - 1.1 * self.r <= self.x <= obj.x + obj.r + 1.1 * self.r
+        ) and (obj.y - obj.r - 1.1 * self.r <= self.y <= obj.y + obj.r + 1.1 * self.r):
             return True
         else:
             return False
 
     def leveling(self, parent_level):
         if parent_level == None:
-            return random.randint(1, 5)
+            return random.randint(1, 3)
         else:
             return parent_level - 1
 
@@ -121,6 +137,18 @@ class Rock:
             return int(-10 * random.random() + level)
         else:
             return int(-10 * random.random() + level + abs(parent_luck))
+
+    def draw(self):
+        rock_surf = self.screen
+        rock_surf = pygame.transform.scale(
+            rock_surf,
+            (
+                rock_surf.get_width() * 1.5 ** (self.level) * 0.15,
+                rock_surf.get_height() * 1.5 ** (self.level) * 0.15,
+            ),
+        )
+        rock_surf = pygame.transform.rotate(rock_surf, self.phi)
+        screen.blit(rock_surf, rock_surf.get_rect(center=(self.x, self.y)))
 
 
 class Button:
@@ -179,26 +207,28 @@ class Button:
         print_text(self.text, self.x, self.y)
 
 
-pygame.init()
+gun = Gun()
 
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Пушка 2.0")
-pygame.display.set_icon(pygame.image.load("Скала.bmp"))
-font = pygame.font.Font("Palatino.ttc", 25)
-gun_surf = pygame.image.load("gun.png").convert_alpha()
-gun_surf.set_colorkey((255, 255, 255))
-gun_surf = pygame.transform.scale(
-    gun_surf, (gun_surf.get_width() // 10, gun_surf.get_height() // 10)
-)
-gun = Gun(gun_surf)
 
 balls, rocks = [], []
+active_bonuses, arr_bonuses = [], [
+    "gun_speed_up",
+    "b_power_up",
+    "b_max_up",
+    "extra_live",
+]
+
 
 record, score = 0, 0
 level, max_rocks = 1, 1
 
-finished, started = False, False
-direction = False
+
+gravity, spawn_k = 0.5, 1.5
+after_decay_speed_x, after_decay_speed_y = 2, -5
+
+
+finished, started, direction = False, False, False
+
 
 clock = pygame.time.Clock()
 next_shoot_time, next_spawn_time, next_bonus_time = (
@@ -206,6 +236,10 @@ next_shoot_time, next_spawn_time, next_bonus_time = (
     pygame.time.get_ticks(),
     pygame.time.get_ticks(),
 )
+
+
+last_collide = pygame.time.get_ticks()
+collide_cooldown = 300
 
 
 def print_text(
@@ -263,13 +297,9 @@ def shoot(pushka):
 def spawn_rock():
     global rocks, next_spawn_time, current_time, max_rocks
     if current_time >= next_spawn_time and len(rocks) <= max_rocks - 1:
-        new_rock = Rock(screen, None, None)
+        new_rock = Rock()
         rocks.append(new_rock)
         next_spawn_time = current_time + new_rock.delta_time
-
-
-last_collide = pygame.time.get_ticks()
-collide_cooldown = 300
 
 
 def collide():
@@ -287,19 +317,14 @@ def collide():
 
 def decay(rock):
     if rock.level > 1:
-        new_rock1, new_rock2 = Rock(screen, rock.level, rock.luck), Rock(
-            screen, rock.level, rock.luck
-        )
+        new_rock1, new_rock2 = Rock(), Rock()
+        new_rock1.level, new_rock2.level = rock.level - 1, rock.level - 1
         new_rock1.x, new_rock2.x = rock.x, rock.x
         new_rock1.y, new_rock2.y = rock.y, rock.y
         new_rock1.vx, new_rock2.vx = -after_decay_speed_x, after_decay_speed_x
         new_rock1.vy, new_rock2.vy = after_decay_speed_y, after_decay_speed_y
         rocks.append(new_rock1)
         rocks.append(new_rock2)
-
-
-active_bonuses = []
-arr_bonuses = ["gun_speed_up", "b_power_up", "b_max_up", "extra_live"]
 
 
 def bonuses(bonus_id):
@@ -333,7 +358,7 @@ def bonuses_clear():
         if bonus_id == "gun_speed_up":
             gun.speed /= 1.5
         elif bonus_id == "b_max_up":
-            gun.bullets_max /= 2
+            gun.bullets_max //= 2
         elif bonus_id == "b_speed_up":
             for b in gun.bullets:
                 b.speed /= 1.5
@@ -422,7 +447,7 @@ def main():
     max_rocks = level
     current_time = pygame.time.get_ticks()
     print_text(f"Score: {score}", 70, 20)
-    spawn_rock(), gun.move(), charge(gun), shoot(gun), collide(), hearts()
+    spawn_rock(), gun.draw(), gun.move(), charge(gun), shoot(gun), collide(), hearts()
 
     for b in balls:
         b.draw()
@@ -430,15 +455,15 @@ def main():
         if b.y < 0:
             balls.remove(b)
 
-    for r in rocks:
-        r.draw()
-        r.move()
-        if r.HP <= 0:
-            score += r.level * 10
-            decay(r)
-            if r.luck in range(1, 5):
+    for rock in rocks:
+        rock.move()
+        rock.draw()
+        if rock.HP <= 0:
+            score += rock.level * 10
+            decay(rock)
+            if rock.luck in range(1, 5):
                 bonuses(random.choice(arr_bonuses))
-            rocks.remove(r)
+            rocks.remove(rock)
 
 
 while not finished:
@@ -458,7 +483,6 @@ while not finished:
         if event.type == KEYUP:
             direction = False
 
-    screen.blit(gun_surf, gun_surf.get_rect(center=(gun.x, HEIGHT - 15)))
     pygame.display.update()
     clock.tick(FPS)
 
