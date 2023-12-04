@@ -119,8 +119,8 @@ class Rock:
 
     def hittest(self, obj):
         if (
-            obj.x - obj.r - 0.5 * self.r <= self.x <= obj.x + obj.r + 0.5 * self.r
-        ) and (obj.y - obj.r - 0.5 * self.r <= self.y <= obj.y + obj.r + 0.5 * self.r):
+            obj.x - obj.r - self.r <= self.x <= obj.x + obj.r + self.r
+        ) and (obj.y - obj.r - self.r <= self.y <= obj.y + obj.r + self.r):
             return True
         else:
             return False
@@ -151,9 +151,12 @@ class Rock:
 
         font = pygame.font.Font("Arcade.ttf", int(15 * 1.5**self.level))
         for b in balls:
-            text = font.render(f"{self.HP // b.power}", True, (255, 255, 255))
-            text = pygame.transform.rotate(text, self.phi)
-        screen.blit(text, (text.get_rect(center=(self.x, self.y))))
+            try:
+                text = font.render(f"{self.HP // b.power}", True, (255, 255, 255))
+                text = pygame.transform.rotate(text, self.phi)
+                screen.blit(text, (text.get_rect(center=(self.x, self.y))))
+            except UnboundLocalError:
+                return
 
 
 class Button:
