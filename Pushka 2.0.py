@@ -24,7 +24,7 @@ pygame.mixer.init()
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
-pygame.display.set_caption("gun 2.0")
+pygame.display.set_caption("Pushka 2.0")
 pygame.display.set_icon(pygame.image.load("images/pushka_icon.png"))
 
 
@@ -99,7 +99,7 @@ class Rock:
         self.screen = screen
         self.level = self.leveling(parent_level)
         self.parent_luck = parent_luck
-        #self.luck = int(-10 * random.random() + level + abs(self.parent_luck))
+        # self.luck = int(-10 * random.random() + level + abs(self.parent_luck))
         self.bonus = None
         self.w, self.h = int(screen.get_width() * 1.5 ** (self.level) * 0.15), int(
             screen.get_height() * 1.5 ** (self.level) * 0.15
@@ -122,7 +122,9 @@ class Rock:
             if self.y >= HEIGHT - self.diag // 2 - floor:
                 self.y = HEIGHT - self.diag // 2 - floor
                 self.vy -= gravity
-                self.vy = -((2 * gravity * (HEIGHT - self.diag // 2 * (5 + spawn_k))) ** 0.5)
+                self.vy = -(
+                    (2 * gravity * (HEIGHT - self.diag // 2 * (5 + spawn_k))) ** 0.5
+                )
             if self.x <= self.diag // 2:
                 self.x = self.diag // 2
                 self.vx = -self.vx
@@ -433,7 +435,6 @@ def unpause():
         b.vy = -10
 
 
-
 def restart():
     global score, active_bonuses, current_time
     gun.live = gun.live_max
@@ -489,11 +490,27 @@ def main():
     global score, current_time, max_rocks, level, ball_power, paused
     if not paused:
         button_pause = Button(
-            screen, WIDTH - 75, 10, (0, 0, 0), (0, 0, 0), "", "images/pause_black.png", "images/pause_white.png"
+            screen,
+            WIDTH - 75,
+            10,
+            (0, 0, 0),
+            (0, 0, 0),
+            "",
+            "images/pause_black.png",
+            "images/pause_white.png",
         )
         button_pause.draw(pause_menu)
     else:
-        button_unpause = Button(screen, WIDTH // 2 - 32, HEIGHT // 2 - 32, (0, 0, 0), (0, 0, 0), "", "images/unpause_black.png", "images/unpause_white.png")
+        button_unpause = Button(
+            screen,
+            WIDTH // 2 - 32,
+            HEIGHT // 2 - 32,
+            (0, 0, 0),
+            (0, 0, 0),
+            "",
+            "images/unpause_black.png",
+            "images/unpause_white.png",
+        )
         button_unpause.draw(unpause)
 
     level = 1 + score // 150
