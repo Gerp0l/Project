@@ -22,16 +22,13 @@ HEIGHT = 700
 pygame.init()
 pygame.mixer.init()
 
+
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
 pygame.display.set_caption("Pushka 2.0")
 pygame.display.set_icon(pygame.image.load("images/pushka_icon.png"))
 
-
-music = pygame.mixer.music.load("sounds/music.mp3")
-background = pygame.image.load("images/background.png")
 floor = 120
-pygame.mixer.music.play(-1)
 
 
 class Gun:
@@ -71,10 +68,10 @@ class Ball:
     def __init__(self, screen, gun):
         self.x = gun.x
         self.maxx = gun.x
-        self.y = gun.y - gun.r
+        self.y = gun.y - 1.75 * gun.r
         self.vx, self.vy = 0, 0
         self.screen = screen
-        self.color = random.choice(GAME_COLORS)
+        self.color = BLACK
         self.r = 5
         self.power = 100
 
@@ -160,7 +157,7 @@ class Rock:
         rock_surf = pygame.transform.rotate(rock_surf, self.phi)
         screen.blit(rock_surf, rock_surf.get_rect(center=(self.x, self.y)))
 
-        font = pygame.font.Font("fonts/Arcade.ttf", int(15 * 1.5 ** self.level))
+        font = pygame.font.Font("fonts/Arcade.ttf", int(15 * 1.5**self.level))
         text = font.render(f"{self.HP // ball_power}", True, (255, 255, 255))
         text = pygame.transform.rotate(text, self.phi)
         screen.blit(text, (text.get_rect(center=(self.x, self.y))))
@@ -264,7 +261,12 @@ level, max_rocks = 1, 1
 gravity, spawn_k = 0.5, 1.5
 after_decay_speed_x, after_decay_speed_y = 2, -5
 
-finished, started, paused, direction = False, False, False, False
+finished, started, paused, muted, direction = False, False, False, False, False
+
+background = pygame.image.load("images/background.png")
+music = pygame.mixer.music.load("sounds/music.mp3")
+if not muted:
+    pygame.mixer.music.play(-1)
 
 clock = pygame.time.Clock()
 next_shoot_time, next_spawn_time, next_bonus_time = (
@@ -274,7 +276,7 @@ next_shoot_time, next_spawn_time, next_bonus_time = (
 )
 
 last_collide = pygame.time.get_ticks()
-collide_cooldown = 300
+last_mute_click = 0
 
 
 def print_text(
@@ -338,10 +340,11 @@ def spawn_rock():
 
 
 def collide():
-    global rocks, balls, collide_cooldown, current_time, last_collide
+    global rocks, balls, current_time, last_collide
+    cooldown = 300
     for r in rocks:
         if r.hittest(gun):
-            if current_time - last_collide >= collide_cooldown:
+            if current_time - last_collide >= cooldown:
                 gun.live -= 1
                 last_collide = current_time
         for b in balls:
@@ -428,13 +431,6 @@ def finish():
     finished = True
 
 
-def unpause():
-    global paused, balls
-    paused = False
-    for b in balls:
-        b.vy = -10
-
-
 def restart():
     global score, active_bonuses, current_time
     gun.live = gun.live_max
@@ -476,53 +472,38 @@ def end_menu():
     button_exit.draw(finish)
 
 
-def pause_menu():
+def pause():
     global paused, gun
-    paused = True
-    for r in rocks:
-        r.vx = 0
-        r.vy = 0
-    for b in balls:
-        b.vy = 0
+    paused = not paused
+    if paused == True:
+        for r in rocks:
+            r.vx = 0
+            r.vy = 0
+        for b in balls:
+            b.vy = 0
+    else:
+        for b in balls:
+            b.vy = -10
+
+
+def mute():
+    global muted, current_time, last_mute_click
+    cooldown = 100
+    if current_time >= last_mute_click + cooldown:
+        muted = not muted
+        if muted == True:
+            pygame.mixer.music.pause()
+            last_mute_click = pygame.time.get_ticks()
+        else:
+            pygame.mixer.music.unpause()
+            last_mute_click = pygame.time.get_ticks()
 
 
 def main():
     global score, current_time, max_rocks, level, ball_power, paused
-    if not paused:
-        button_pause = Button(
-            screen,
-            WIDTH - 75,
-            10,
-            (0, 0, 0),
-            (0, 0, 0),
-            "",
-            "images/pause_black.png",
-            "images/pause_white.png",
-        )
-        button_pause.draw(pause_menu)
-    else:
-        button_unpause = Button(
-            screen,
-            WIDTH // 2 - 32,
-            HEIGHT // 2 - 32,
-            (0, 0, 0),
-            (0, 0, 0),
-            "",
-            "images/unpause_black.png",
-            "images/unpause_white.png",
-        )
-        button_unpause.draw(unpause)
-
     level = 1 + score // 150
     max_rocks = level
     current_time = pygame.time.get_ticks()
-    font = pygame.font.Font("fonts/Arcade.ttf", 20)
-    text = font.render(f"Score:{score}", True, (255, 255, 255))
-    text_rect = text.get_rect(topleft=(20, 10))
-    screen.blit(text, text_rect)
-    gun.draw(), hearts()
-    if not paused:
-        spawn_rock(), gun.move(), charge(gun), shoot(gun), collide()
 
     for b in balls:
         ball_power = b.power
@@ -540,6 +521,64 @@ def main():
             # if rock.luck in range(1, 5):
             # bonuses(random.choice(arr_bonuses))
             rocks.remove(rock)
+
+    font = pygame.font.Font("fonts/Arcade.ttf", 20)
+    text = font.render(f"Score:{score}", True, (255, 255, 255))
+    text_rect = text.get_rect(topleft=(20, 10))
+    screen.blit(text, text_rect)
+
+    gun.draw(), hearts()
+
+    if not paused:
+        spawn_rock(), gun.move(), collide(), shoot(gun), charge(gun)
+        button_pause = Button(
+            screen,
+            WIDTH - 75,
+            10,
+            (0, 0, 0),
+            (0, 0, 0),
+            "",
+            "images/pause_black.png",
+            "images/pause_white.png",
+        )
+        button_pause.draw(pause)
+
+    else:
+        button_unpause = Button(
+            screen,
+            WIDTH // 2 - 80,
+            HEIGHT // 2 - 32,
+            (0, 0, 0),
+            (0, 0, 0),
+            "",
+            "images/unpause_black.png",
+            "images/unpause_white.png",
+        )
+        if not muted:
+            button_mute = Button(
+                screen,
+                WIDTH // 2 + 48,
+                HEIGHT // 2 - 32,
+                (0, 0, 0),
+                (0, 0, 0),
+                "",
+                "images/mute_black.png",
+                "images/mute_white.png",
+            )
+            button_mute.draw(mute)
+        else:
+            button_unmute = Button(
+                screen,
+                WIDTH // 2 + 48,
+                HEIGHT // 2 - 32,
+                (0, 0, 0),
+                (0, 0, 0),
+                "",
+                "images/unmute_black.png",
+                "images/unmute_white.png",
+            )
+            button_unmute.draw(mute)
+        button_unpause.draw(pause)
 
 
 while not finished:
