@@ -20,20 +20,28 @@ HEIGHT = 700
 
 
 pygame.init()
+pygame.mixer.init()
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
-pygame.display.set_caption("Пушка 2.0")
-pygame.display.set_icon(pygame.image.load("Скала.bmp"))
+pygame.display.set_caption("gun 2.0")
+pygame.display.set_icon(pygame.image.load("images/pushka_icon.png"))
+
+
+music = pygame.mixer.music.load("sounds/music.mp3")
+background = pygame.image.load("images/background.png")
+floor = 120
+pygame.mixer.music.play(-1)
 
 
 class Gun:
     def __init__(
-        self, screen=pygame.image.load("gun.png").convert_alpha(), x=WIDTH // 2
+        self, screen=pygame.image.load("images/gun.png").convert_alpha(), x=WIDTH // 2
     ):
         self.screen = screen
-        self.r = 15
-        self.x, self.y = x, HEIGHT - self.r
+        self.w, self.h = self.screen.get_width() // 10, self.screen.get_height() // 10
+        self.r = self.h // 4
+        self.x, self.y = x, HEIGHT - floor - self.h // 4
         self.live = 3
         self.live_max = 3
         self.speed = 5
@@ -53,17 +61,17 @@ class Gun:
 
     def draw(self):
         gun_surf = self.screen
-        gun_surf = pygame.transform.scale(
-            gun_surf, (gun_surf.get_width() // 10, gun_surf.get_height() // 10)
+        gun_surf = pygame.transform.scale(gun_surf, (self.w, self.h))
+        screen.blit(
+            gun_surf, gun_surf.get_rect(center=(self.x, HEIGHT - floor - self.h // 4))
         )
-        screen.blit(gun_surf, gun_surf.get_rect(center=(self.x, HEIGHT - 15)))
 
 
 class Ball:
-    def __init__(self, screen, pushka):
-        self.x = pushka.x
-        self.maxx = pushka.x
-        self.y = pushka.y - 2 * pushka.r
+    def __init__(self, screen, gun):
+        self.x = gun.x
+        self.maxx = gun.x
+        self.y = gun.y - gun.r
         self.vx, self.vy = 0, 0
         self.screen = screen
         self.color = random.choice(GAME_COLORS)
@@ -84,43 +92,50 @@ class Ball:
 class Rock:
     def __init__(
         self,
-        screen=pygame.image.load("rock.png").convert_alpha(),
+        screen=pygame.image.load("images/rock.png").convert_alpha(),
         parent_level=None,
-        parent_luck=None,
+        parent_luck=0,
     ):
         self.screen = screen
         self.level = self.leveling(parent_level)
-        self.luck = self.set_luck(parent_luck)
+        self.parent_luck = parent_luck
+        #self.luck = int(-10 * random.random() + level + abs(self.parent_luck))
         self.bonus = None
+        self.w, self.h = int(screen.get_width() * 1.5 ** (self.level) * 0.15), int(
+            screen.get_height() * 1.5 ** (self.level) * 0.15
+        )
         self.r = round((self.level * 900) ** 0.5)
         self.x = random.randint(self.r, WIDTH - self.r)
         self.y = spawn_k * self.r
         self.vx, self.vy = 0, 0
         self.HP = self.level * 1000
         self.delta_time = 1000
-        self.phi = random.randint(0, 359)
-        self.omega = random.randint(-3, 3)
+        self.phi, self.omega = random.randint(0, 359), random.randint(-3, 3)
+        self.diag = int(((self.w // 2) ** 2 + (self.h // 2) ** 2) ** 0.5)
 
     def move(self):
-        self.phi += self.omega
-        self.y += self.vy
-        self.x += self.vx
-        self.vy += gravity
-        if self.y >= HEIGHT - self.r:
-            self.y = HEIGHT - self.r
-            self.vy -= gravity
-            self.vy = -((2 * gravity * (HEIGHT - self.r * (1 + spawn_k))) ** 0.5)
-        if self.x <= self.r:
-            self.x = self.r
-            self.vx = -self.vx
-        if self.x >= WIDTH - self.r:
-            self.x = WIDTH - self.r
-            self.vx = -self.vx
+        if not paused:
+            self.phi += self.omega
+            self.y += self.vy
+            self.x += self.vx
+            self.vy += gravity
+            if self.y >= HEIGHT - self.diag // 2 - floor:
+                self.y = HEIGHT - self.diag // 2 - floor
+                self.vy -= gravity
+                self.vy = -((2 * gravity * (HEIGHT - self.diag // 2 * (5 + spawn_k))) ** 0.5)
+            if self.x <= self.diag // 2:
+                self.x = self.diag // 2
+                self.vx = -self.vx
+            if self.x >= WIDTH - self.diag // 2:
+                self.x = WIDTH - self.diag // 2
+                self.vx = -self.vx
 
     def hittest(self, obj):
         if (
-            obj.x - obj.r - self.r <= self.x <= obj.x + obj.r + self.r
-        ) and (obj.y - obj.r - self.r <= self.y <= obj.y + obj.r + self.r):
+            obj.x - obj.r - self.diag // 2 <= self.x <= obj.x + obj.r + self.diag // 2
+        ) and (
+            obj.y - obj.r - self.diag // 2 <= self.y <= obj.y + obj.r + self.diag // 2
+        ):
             return True
         else:
             return False
@@ -131,116 +146,123 @@ class Rock:
         else:
             return parent_level - 1
 
-    def set_luck(self, parent_luck):
-        if parent_luck == None:
-            return int(-10 * random.random() + level)
-        else:
-            return int(-10 * random.random() + level + abs(parent_luck))
-
     def draw(self):
         rock_surf = self.screen
         rock_surf = pygame.transform.scale(
             rock_surf,
             (
-                rock_surf.get_width() * 1.5 ** (self.level) * 0.15,
-                rock_surf.get_height() * 1.5 ** (self.level) * 0.15,
+                int(rock_surf.get_width() * 1.5 ** (self.level) * 0.15),
+                int(rock_surf.get_height() * 1.5 ** (self.level) * 0.15),
             ),
         )
         rock_surf = pygame.transform.rotate(rock_surf, self.phi)
         screen.blit(rock_surf, rock_surf.get_rect(center=(self.x, self.y)))
 
-        font = pygame.font.Font("Arcade.ttf", int(15 * 1.5**self.level))
-        for b in balls:
-            try:
-                text = font.render(f"{self.HP // b.power}", True, (255, 255, 255))
-                text = pygame.transform.rotate(text, self.phi)
-                screen.blit(text, (text.get_rect(center=(self.x, self.y))))
-            except UnboundLocalError:
-                return
+        font = pygame.font.Font("fonts/Arcade.ttf", int(15 * 1.5 ** self.level))
+        text = font.render(f"{self.HP // ball_power}", True, (255, 255, 255))
+        text = pygame.transform.rotate(text, self.phi)
+        screen.blit(text, (text.get_rect(center=(self.x, self.y))))
 
 
 class Button:
-    def __init__(self, screen, x, y, text, active_color, inactive_color):
+    def __init__(
+        self,
+        screen,
+        x,
+        y,
+        active_color=(19, 207, 22),
+        inactive_color=(0, 0, 0),
+        text="",
+        image="",
+        inactive_image="",
+        font="fonts/Arcade.ttf",
+        font_color=(0, 0, 0),
+        font_size=45,
+    ):
         self.screen = screen
         self.x, self.y = x, y
         self.text = text
-        self.width, self.height = (
-            self.parameters(self.text)[0],
-            self.parameters(self.text)[1],
+        self.image = image
+        self.inactive_image = inactive_image
+        self.font = font
+        self.font_size = font_size
+        self.font_color = font_color
+        self.w, self.h = (
+            self.parameters()[0],
+            self.parameters()[1],
         )
         self.inactive_color = inactive_color
         self.active_color = active_color
 
-    def parameters(
-        self,
-        text,
-        font="Arcade.ttf",
-        font_size=45,
-        font_color=(0, 0, 0),
-    ):
-        font = pygame.font.Font(font, font_size)
-        message = font.render(text, True, font_color)
-        messageRect = message.get_rect()
-        return [messageRect.width, messageRect.height]
+    def parameters(self):
+        if self.text != "":
+            font = pygame.font.Font(self.font, self.font_size)
+            message = font.render(self.text, True, self.font_color)
+            messageRect = message.get_rect()
+            return [messageRect.w, messageRect.h]
+        else:
+            image = pygame.image.load(self.image).convert_alpha()
+            return [image.get_width() // 8, image.get_height() // 8]
 
     def draw(self, action=None):
         mouse = pygame.mouse.get_pos()
         click = pygame.mouse.get_pressed()
-        if (self.x - self.width // 2 < mouse[0] < self.x + self.width // 2) and (
-            self.y - self.height // 2 < mouse[1] < self.y + self.height // 2
-        ):
-            pygame.draw.rect(
-                screen,
-                self.active_color,
-                (
-                    self.x - self.width // 2,
-                    self.y - self.height // 2,
-                    self.width,
-                    self.height,
-                ),
-            )
-            if action is not None and click[0] == 1:
-                action()
+        if self.text != "":
+            if (self.x - self.w // 2 < mouse[0] < self.x + self.w // 2) and (
+                self.y - self.h // 2 < mouse[1] < self.y + self.h // 2
+            ):
+                print_text(
+                    self.text,
+                    self.x,
+                    self.y,
+                    self.active_color,
+                    font="fonts/Arcade.ttf",
+                    font_size=40,
+                )
+                if action is not None and click[0] == 1:
+                    action()
+            else:
+                print_text(
+                    self.text,
+                    self.x,
+                    self.y,
+                    self.inactive_color,
+                    font="fonts/Arcade.ttf",
+                    font_size=40,
+                )
         else:
-            pygame.draw.rect(
-                screen,
-                self.inactive_color,
-                (
-                    self.x - self.width // 2,
-                    self.y - self.height // 2,
-                    self.width,
-                    self.height,
-                ),
-            )
-        print_text(
-            self.text, self.x, self.y, (0, 0, 0), font="Arcade.ttf", font_size=40
-        )
+            if (self.x < mouse[0] < self.x + self.w) and (
+                self.y < mouse[1] < self.y + self.h
+            ):
+                image = pygame.image.load(self.image).convert_alpha()
+                image = pygame.transform.scale(image, (self.w, self.h))
+                screen.blit(image, (self.x, self.y))
+                if action is not None and click[0] == 1:
+                    action()
+            else:
+                image = pygame.image.load(self.inactive_image).convert_alpha()
+                image = pygame.transform.scale(image, (self.w, self.h))
+                screen.blit(image, (self.x, self.y))
 
 
 gun = Gun()
 
-
 balls, rocks = [], []
-
+ball_power = 0
 
 active_bonuses, arr_bonuses = [], [
-    "gun_speed_up",
     "b_power_up",
     "b_max_up",
     "extra_live",
 ]
 
-
 record, score = 0, 0
 level, max_rocks = 1, 1
-
 
 gravity, spawn_k = 0.5, 1.5
 after_decay_speed_x, after_decay_speed_y = 2, -5
 
-
-finished, started, direction = False, False, False
-
+finished, started, paused, direction = False, False, False, False
 
 clock = pygame.time.Clock()
 next_shoot_time, next_spawn_time, next_bonus_time = (
@@ -248,7 +270,6 @@ next_shoot_time, next_spawn_time, next_bonus_time = (
     pygame.time.get_ticks(),
     pygame.time.get_ticks(),
 )
-
 
 last_collide = pygame.time.get_ticks()
 collide_cooldown = 300
@@ -259,51 +280,51 @@ def print_text(
     x,
     y,
     font_color=(0, 0, 0),
-    font="Arcade.ttf",
+    font="fonts/Arcade.ttf",
     font_size=20,
 ):
     font = pygame.font.Font(font, font_size)
     message = font.render(text, True, font_color)
     messageRect = message.get_rect()
-    messageRect.topleft = (x - messageRect.width // 2, y - messageRect.height // 2)
+    messageRect.topleft = (x - messageRect.w // 2, y - messageRect.h // 2)
     screen.blit(message, messageRect)
 
 
-def charge(pushka):
-    if len(pushka.bullets) == 0 and pushka.bullets_max > 1:
-        for b in range(pushka.bullets_max):
-            b = Ball(screen, pushka)
-            pushka.bullets.append(b)
+def charge(gun):
+    if len(gun.bullets) == 0 and gun.bullets_max > 1:
+        for b in range(gun.bullets_max):
+            b = Ball(screen, gun)
+            gun.bullets.append(b)
 
 
-# def position(pushka):
-#     if pushka.bullets_max % 2 == 0:
+# def position(gun):
+#     if gun.bullets_max % 2 == 0:
 #         delta = -2
-#         for b in pushka.bullets:
-#             if pushka.bullets.index(b) % 2 == 0:
-#                 b.maxx = pushka.x + (pushka.bullets.index(b) * 2 - delta) * b.r
+#         for b in gun.bullets:
+#             if gun.bullets.index(b) % 2 == 0:
+#                 b.maxx = gun.x + (gun.bullets.index(b) * 2 - delta) * b.r
 #                 b.vx = 1
 #                 delta += 1
 #             else:
-#                 b.maxx = pushka.x - ((pushka.bullets.index(b) - 1) * 2 - delta) * b.r
+#                 b.maxx = gun.x - ((gun.bullets.index(b) - 1) * 2 - delta) * b.r
 #                 b.vx = -1
 
 
-def shoot(pushka):
+def shoot(gun):
     global balls, next_shoot_time, current_time
     if current_time >= next_shoot_time:
-        if pushka.bullets_max > 1:
-            for b in pushka.bullets:
-                b.y = pushka.y
-                b.x = pushka.x
+        if gun.bullets_max > 1:
+            for b in gun.bullets:
+                b.y = gun.y
+                b.x = gun.x
                 b.vy = -10
-            balls += pushka.bullets
-            pushka.bullets.clear()
+            balls += gun.bullets
+            gun.bullets.clear()
         else:
-            new_ball = Ball(screen, pushka)
+            new_ball = Ball(screen, gun)
             new_ball.vy = -10
             balls.append(new_ball)
-        next_shoot_time = current_time + pushka.delta_time
+        next_shoot_time = current_time + gun.delta_time
 
 
 def spawn_rock():
@@ -347,9 +368,7 @@ def bonuses(bonus_id):
         and bonus_id in arr_bonuses
         and current_time >= next_bonus_time
     ):
-        if bonus_id == "gun_speed_up":
-            gun.speed *= 1.5
-        elif bonus_id == "b_max_up":
+        if bonus_id == "b_max_up":
             gun.bullets_max *= 2
         elif bonus_id == "b_power_up":
             for b in gun.bullets:
@@ -388,11 +407,11 @@ def bonuses_clear():
 
 def hearts():
     for i in range(gun.live_max):
-        empty_heart = pygame.image.load("empty_heart.png").convert_alpha()
+        empty_heart = pygame.image.load("images/empty_heart.png").convert_alpha()
         empty_heart = pygame.transform.scale(empty_heart, (30, 30))
         screen.blit(empty_heart, (20 + 30 * i, 40))
         for j in range(gun.live):
-            full_heart = pygame.image.load("full_heart.png").convert_alpha()
+            full_heart = pygame.image.load("images/full_heart.png").convert_alpha()
             full_heart = pygame.transform.scale(full_heart, (30, 30))
             screen.blit(full_heart, (20 + 30 * j, 40))
 
@@ -407,18 +426,29 @@ def finish():
     finished = True
 
 
+def unpause():
+    global paused, balls
+    paused = False
+    for b in balls:
+        b.vy = -10
+
+
+
 def restart():
     global score, active_bonuses, current_time
     gun.live = gun.live_max
     score = 0
-    bonuses_clear(), main()
+    # bonuses_clear()
+    main()
 
 
 def start_menu():
     global record
-    print_text("Pushka 2.0", WIDTH // 2, 50, font_size=40)
+    gun_logo = pygame.image.load("images/pushka_logo.png").convert_alpha()
+    gun_logo = pygame.transform.scale(gun_logo, (400, 153))
+    screen.blit(gun_logo, (50, 0))
     button_start = Button(
-        screen, WIDTH // 2, HEIGHT // 2, "START", (226, 135, 67), (234, 182, 118)
+        screen, WIDTH // 2, HEIGHT // 2, (255, 255, 255), (0, 0, 0), "START"
     )
     button_start.draw(start)
 
@@ -426,46 +456,59 @@ def start_menu():
 def end_menu():
     global score, record
     rocks.clear(), balls.clear()
-    print_text("POTRACHENO", WIDTH // 2, 100, font_size=40)
-    print_text(f"SCORE:{score}", WIDTH // 2, 250, font_size=30)
+    game_over = pygame.image.load("images/game_over.png").convert_alpha()
+    game_over = pygame.transform.scale(game_over, (300, 150))
+    screen.blit(game_over, (100, 0))
+    print_text(f"SCORE:{score}", WIDTH // 2, 300, font_size=30)
     if score >= record and score != 0:
-        print_text("NEW RECORD!", WIDTH // 2, 200, font_size=30)
+        print_text("NEW RECORD!", WIDTH // 2, 250, font_size=30)
         record = score
     else:
-        print_text(f"RECORD:{record}", WIDTH // 2, 200, font_size=30)
+        print_text(f"RECORD:{record}", WIDTH // 2, 250, font_size=30)
     button_restart = Button(
-        screen,
-        WIDTH // 2,
-        HEIGHT // 2,
-        "RESTART",
-        (226, 135, 67),
-        (234, 182, 118),
+        screen, WIDTH // 2, HEIGHT // 2 + 100, (255, 255, 255), (0, 0, 0), "RESTART"
     )
     button_exit = Button(
-        screen,
-        WIDTH // 2,
-        HEIGHT // 2 + 80,
-        "EXIT",
-        (226, 135, 67),
-        (234, 182, 118),
+        screen, WIDTH // 2, HEIGHT // 2 + 150, (255, 255, 255), (0, 0, 0), "EXIT"
     )
     button_restart.draw(restart)
     button_exit.draw(finish)
 
 
+def pause_menu():
+    global paused, gun
+    paused = True
+    for r in rocks:
+        r.vx = 0
+        r.vy = 0
+    for b in balls:
+        b.vy = 0
+
+
 def main():
-    global score, current_time, max_rocks, level
+    global score, current_time, max_rocks, level, ball_power, paused
+    if not paused:
+        button_pause = Button(
+            screen, WIDTH - 75, 10, (0, 0, 0), (0, 0, 0), "", "images/pause_black.png", "images/pause_white.png"
+        )
+        button_pause.draw(pause_menu)
+    else:
+        button_unpause = Button(screen, WIDTH // 2 - 32, HEIGHT // 2 - 32, (0, 0, 0), (0, 0, 0), "", "images/unpause_black.png", "images/unpause_white.png")
+        button_unpause.draw(unpause)
+
     level = 1 + score // 150
     max_rocks = level
     current_time = pygame.time.get_ticks()
-
-    font = pygame.font.Font("Arcade.ttf", 20)
-    text = font.render(f"Score:{score}", True, (0, 0, 0))
+    font = pygame.font.Font("fonts/Arcade.ttf", 20)
+    text = font.render(f"Score:{score}", True, (255, 255, 255))
     text_rect = text.get_rect(topleft=(20, 10))
     screen.blit(text, text_rect)
-    spawn_rock(), gun.draw(), gun.move(), charge(gun), shoot(gun), collide(), hearts()
+    gun.draw(), hearts()
+    if not paused:
+        spawn_rock(), gun.move(), charge(gun), shoot(gun), collide()
 
     for b in balls:
+        ball_power = b.power
         b.draw()
         b.move()
         if b.y < 0:
@@ -477,13 +520,13 @@ def main():
         if rock.HP <= 0:
             score += rock.level * 10
             decay(rock)
-            if rock.luck in range(1, 5):
-                bonuses(random.choice(arr_bonuses))
+            # if rock.luck in range(1, 5):
+            # bonuses(random.choice(arr_bonuses))
             rocks.remove(rock)
 
 
 while not finished:
-    screen.fill(WHITE)
+    screen.blit(background, (0, 0))
     if not started:
         start_menu()
     elif gun.live and started:
