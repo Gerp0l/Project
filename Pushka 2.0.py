@@ -81,9 +81,9 @@ class Ball:
 
 class Rock:
     def __init__(
-        self,
-        screen=pygame.image.load("images/rock.png").convert_alpha(),
+        self, 
         parent_level=None,
+        screen=pygame.image.load("images/rock.png").convert_alpha(),
         parent_luck=0,
     ):
         self.screen = screen
@@ -259,8 +259,8 @@ record, score = 0, 0
 level, max_rocks = 1, 1
 
 gravity, spawn_k = 2, 1
-after_decay_speed_x, after_decay_speed_y = 3.5, -5
-BallsSpeed=20
+after_decay_speed_x, after_decay_speed_y = 5, -5
+BallsSpeed=30
 
 finished, started, paused, muted, direction = False, False, False, False, False
 
@@ -335,7 +335,7 @@ def shoot(gun):
 def spawn_rock():
     global rocks, next_spawn_time, current_time, max_rocks
     if current_time >= next_spawn_time and len(rocks) < max_rocks:
-        new_rock = Rock()
+        new_rock = Rock(None)
         rocks.append(new_rock)
         next_spawn_time = current_time + new_rock.delta_time
 
@@ -355,8 +355,7 @@ def collide():
 
 def decay(rock):
     if rock.level > 1:
-        new_rock1, new_rock2 = Rock(), Rock()
-        new_rock1.level, new_rock2.level = rock.level - 1, rock.level - 1
+        new_rock1, new_rock2 = Rock(rock.level), Rock(rock.level)
         new_rock1.spawn_side, new_rock2.spawn_side=0, 0
         new_rock1.x, new_rock2.x = rock.x, rock.x
         new_rock1.y, new_rock2.y = rock.y, rock.y
@@ -444,7 +443,7 @@ def start_menu():
     global record
     gun_logo = pygame.image.load("images/pushka_logo.png").convert_alpha()
     gun_logo = pygame.transform.scale(gun_logo, (400, 153))
-    screen.blit(gun_logo, (50, 0))
+    screen.blit(gun_logo, gun_logo.get_rect(center=(WIDTH/2, 100)))
     button_start = Button(
         screen, WIDTH // 2, HEIGHT // 2, WHITE, BLACK, "START"
     )
@@ -456,7 +455,7 @@ def end_menu():
     rocks.clear(), balls.clear()
     game_over = pygame.image.load("images/game_over.png").convert_alpha()
     game_over = pygame.transform.scale(game_over, (300, 150))
-    screen.blit(game_over, (100, 0))
+    screen.blit(game_over, game_over.get_rect(center=(WIDTH/2, 100)))
     print_text(f"SCORE:{score}", WIDTH // 2, 300, font_size=30)
     if score >= record and score != 0:
         print_text("NEW RECORD!", WIDTH // 2, 250, font_size=30)
@@ -534,9 +533,8 @@ def main():
     if not paused:
         spawn_rock(), gun.move(), collide(), shoot(gun), charge(gun)
         # print(rocks[0].x)
-        # print(WIDTH-rocks[0].diag)
         # print(rocks[0].spawn_side)
-        
+        # print(WIDTH-rocks[0].diag)
         button_pause = Button(
             screen,
             WIDTH - 75,
