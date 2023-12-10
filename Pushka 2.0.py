@@ -261,8 +261,7 @@ level, max_rocks = 1, 1
 
 gravity, spawn_k = 2, 1
 after_decay_speed_x, after_decay_speed_y = 5, -5
-BallsSpeed=30
-
+BallsSpeed=45
 finished, started, paused, muted, direction = False, False, False, False, False
 
 die=pygame.mixer.Sound("sounds/hurt.mp3")
@@ -499,10 +498,14 @@ def mute():
     if current_time >= last_mute_click + cooldown:
         muted = not muted
         if muted == True:
+            die.set_volume(0)
+            demolish.set_volume(0)
             pygame.mixer.music.pause()
             last_mute_click = pygame.time.get_ticks()
         else:
             pygame.mixer.music.unpause()
+            die.set_volume(0.5)
+            demolish.set_volume(0.5)
             last_mute_click = pygame.time.get_ticks()
 
 
