@@ -11,9 +11,9 @@ WHITE = (255, 255, 255)
 WIDTH = 1000
 HEIGHT = 700
 
-
+pygame.mixer.pre_init(44100, -16, 2, 512, None)
 pygame.init()
-pygame.mixer.init()
+# pygame.mixer.init()
 
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -82,7 +82,8 @@ class Ball:
 class Rock:
     def __init__(
         self, 
-        parent_level=None,
+        parent_level,
+        spawn_side,
         screen=pygame.image.load("images/rock.png").convert_alpha(),
         parent_luck=0,
     ):
@@ -99,7 +100,7 @@ class Rock:
         self.delta_time = 1000
         self.phi, self.omega = random.randint(0, 359), random.randint(-3, 3)
         self.diag = int(((self.w // 2) ** 2 + (self.h // 2) ** 2) ** 0.5)
-        self.spawn_side=random.randint(2,3)
+        self.spawn_side=spawn_side
         if self.spawn_side==3:
             self.x = WIDTH+self.diag   
         if self.spawn_side==2:
@@ -264,11 +265,14 @@ BallsSpeed=30
 
 finished, started, paused, muted, direction = False, False, False, False, False
 
+die=pygame.mixer.Sound("sounds/hurt.mp3")
+die.set_volume(0.5)
+
 background = pygame.image.load("images/background.png")
 music = pygame.mixer.music.load("sounds/music.mp3")
 if not muted:
     pygame.mixer.music.play(-1)
-
+    pygame.mixer.music.set_volume(0.3)
 clock = pygame.time.Clock()
 next_shoot_time, next_spawn_time, next_bonus_time = (
     pygame.time.get_ticks(),
@@ -335,7 +339,8 @@ def shoot(gun):
 def spawn_rock():
     global rocks, next_spawn_time, current_time, max_rocks
     if current_time >= next_spawn_time and len(rocks) < max_rocks:
-        new_rock = Rock(None)
+        spawn_side = random.randint(2,3)
+        new_rock = Rock(None, spawn_side)
         rocks.append(new_rock)
         next_spawn_time = current_time + new_rock.delta_time
 
@@ -347,6 +352,7 @@ def collide():
         if r.hittest(gun):
             if current_time - last_collide >= cooldown:
                 gun.live -= 1
+                die.play()
                 last_collide = current_time
         for b in balls:
             if r.hittest(b):
@@ -355,8 +361,7 @@ def collide():
 
 def decay(rock):
     if rock.level > 1:
-        new_rock1, new_rock2 = Rock(rock.level), Rock(rock.level)
-        new_rock1.spawn_side, new_rock2.spawn_side=0, 0
+        new_rock1, new_rock2 = Rock(rock.level,0), Rock(rock.level,0)
         new_rock1.x, new_rock2.x = rock.x, rock.x
         new_rock1.y, new_rock2.y = rock.y, rock.y
         new_rock1.vx, new_rock2.vx = -after_decay_speed_x, after_decay_speed_x
@@ -501,7 +506,7 @@ def mute():
 
 def main():
     global score, current_time, max_rocks, level, ball_power, paused
-    level = 1 + score // 150
+    level = 1 + score // 100
     max_rocks = level
     current_time = pygame.time.get_ticks()
 
