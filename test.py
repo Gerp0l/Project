@@ -1,3 +1,3 @@
 import random
-spawn_side = random.choice([-1,1])
-print(-1.5<3)
+spawn_side = random.randint(1,2)
+print(spawn_side)

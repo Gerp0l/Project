@@ -99,8 +99,11 @@ class Rock:
         self.delta_time = 1000
         self.phi, self.omega = random.randint(0, 359), random.randint(-3, 3)
         self.diag = int(((self.w // 2) ** 2 + (self.h // 2) ** 2) ** 0.5)
-        self.spawn_side=1
-        self.x = WIDTH+self.diag                 
+        self.spawn_side=random.randint(2,3)
+        if self.spawn_side==3:
+            self.x = WIDTH+self.diag   
+        if self.spawn_side==2:
+            self.x = -self.diag               
         self.y = spawn_k * self.diag
 
     def move(self):
@@ -121,11 +124,12 @@ class Rock:
                 if self.x >= WIDTH - self.diag / 2:
                     self.x = WIDTH - self.diag / 2
                     self.vx = -self.vx
+            if self.spawn_side==3 and self.x>WIDTH-self.diag:
+                self.vx=-after_decay_speed_x
+            if self.spawn_side==2 and self.x<self.diag:
+                self.vx=after_decay_speed_x
             else:
-                if self.spawn_side==1 and self.x>WIDTH-self.diag:
-                    self.vx=-after_decay_speed_x
-                else:
-                    self.spawn_side=0
+                self.spawn_side=0
 
 
     def hittest(self, obj):
@@ -529,6 +533,10 @@ def main():
 
     if not paused:
         spawn_rock(), gun.move(), collide(), shoot(gun), charge(gun)
+        # print(rocks[0].x)
+        # print(WIDTH-rocks[0].diag)
+        # print(rocks[0].spawn_side)
+        
         button_pause = Button(
             screen,
             WIDTH - 75,
@@ -595,7 +603,7 @@ while not finished:
             direction = event.key
         if event.type == KEYUP:
             direction = False
-
+    
     pygame.display.update()
     clock.tick(FPS)
 
