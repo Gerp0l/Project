@@ -267,6 +267,8 @@ finished, started, paused, muted, direction = False, False, False, False, False
 
 die=pygame.mixer.Sound("sounds/hurt.mp3")
 die.set_volume(0.5)
+demolish=pygame.mixer.Sound("sounds/break.mp3")
+demolish.set_volume(1)
 
 background = pygame.image.load("images/background.png")
 music = pygame.mixer.music.load("sounds/music.mp3")
@@ -523,6 +525,7 @@ def main():
         rock.move()
         if rock.HP <= 0:
             score += rock.level * 10
+            demolish.play()
             decay(rock)
             # if rock.luck in range(1, 5):
             # bonuses(random.choice(arr_bonuses))
