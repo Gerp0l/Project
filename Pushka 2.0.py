@@ -250,6 +250,9 @@ gun = Gun()
 balls, rocks = [], []
 ball_power = 0
 
+current_vx=[]
+current_vy=[]
+
 active_bonuses, arr_bonuses = [], [
     "b_power_up",
     "b_max_up",
@@ -479,15 +482,22 @@ def end_menu():
 
 
 def pause():
-    global paused, gun
+    global paused, gun, current_vx, current_vy
     paused = not paused
     if paused == True:
+        current_vx=[]
+        current_vx=[]
         for r in rocks:
+            current_vx.append(r.vx)
+            current_vy.append(r.vy)
             r.vx = 0
             r.vy = 0
         for b in balls:
             b.vy = 0
     else:
+        for r in rocks:
+            r.vx = current_vx[rocks.index(r)]
+            r.vy = current_vy[rocks.index(r)]
         for b in balls:
             b.vy = -10
 
