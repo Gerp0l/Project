@@ -2,7 +2,7 @@ import random
 import pygame
 from pygame.locals import *
 
-FPS = 60
+FPS = 144
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -13,7 +13,7 @@ HEIGHT = 700
 
 pygame.mixer.pre_init(44100, -16, 2, 512, None)
 pygame.init()
-# pygame.mixer.init()
+
 
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -65,8 +65,10 @@ class Ball:
         self.vx, self.vy = 0, 0
         self.screen = screen
         self.color = BLACK
-        self.r = 5
+        self.r = BallsR
         self.power = 100
+        self.gun_0=0
+        
 
     def draw(self):
         pygame.draw.circle(self.screen, self.color, (self.x, self.y), self.r)
@@ -74,9 +76,9 @@ class Ball:
     def move(self):
         self.y += self.vy
         self.x += self.vx
-        if abs(self.x) >= abs(self.maxx):
-            self.x = self.maxx
-            self.vx = 0
+        if abs(self.gun_0-self.x)>=abs(self.maxx):
+            self.vx=0
+
 
 
 class Rock:
@@ -248,10 +250,12 @@ class Button:
 gun = Gun()
 
 balls, rocks = [], []
-ball_power = 0
 
 current_vx=[]
 current_vy=[]
+
+current_vx_b=[]
+current_vy_b=[]
 
 active_bonuses, arr_bonuses = [], [
     "b_power_up",
@@ -262,9 +266,14 @@ active_bonuses, arr_bonuses = [], [
 record, score = 0, 0
 level, max_rocks = 1, 1
 
+# Constants
 gravity, spawn_k = 2, 1
 after_decay_speed_x, after_decay_speed_y = 5, -5
-BallsSpeed=45
+BallsSpeed=41
+BallsR=6
+accuracy=1
+
+
 finished, started, paused, muted, direction = False, False, False, False, False
 
 die=pygame.mixer.Sound("sounds/hurt.mp3")
@@ -304,39 +313,31 @@ def print_text(
 
 
 def charge(gun):
-    if len(gun.bullets) == 0 and gun.bullets_max > 1:
+    if len(gun.bullets) == 0:
+        dist=accuracy*BallsR*(gun.bullets_max-1)
+        fly_t=(dist/2)/BallsSpeed
+        if gun.bullets_max==1:
+            fly_t=1
+        #  and gun.bullets_max > 1
         for b in range(gun.bullets_max):
             b = Ball(screen, gun)
             gun.bullets.append(b)
-
-
-def position(gun):
-    if gun.bullets_max % 2 == 0:
-        delta = -2
         for b in gun.bullets:
-            if gun.bullets.index(b) % 2 == 0:
-                b.maxx = gun.x + (gun.bullets.index(b) * 2 - delta) * b.r
-                b.vx = 1
-                delta += 1
-            else:
-                b.maxx = gun.x - ((gun.bullets.index(b) - 1) * 2 - delta) * b.r
-                b.vx = -1
+            b.maxx=-dist/2+accuracy*BallsR*gun.bullets.index(b)
+            b.vx = b.maxx/fly_t
+            b.vy = -BallsSpeed/2
 
 
 def shoot(gun):
     global balls, next_shoot_time, current_time
     if current_time >= next_shoot_time:
-        if gun.bullets_max > 1:
-            for b in gun.bullets:
-                b.y = gun.y
-                b.x = gun.x
-                b.vy = -BallsSpeed
-            balls += gun.bullets
-            gun.bullets.clear()
-        else:
-            new_ball = Ball(screen, gun)
-            new_ball.vy = -BallsSpeed
-            balls.append(new_ball)
+        # if gun.bullets_max > 1:
+        for b in gun.bullets:
+            b.y = gun.y-35
+            b.x = gun.x
+            b.gun_0=gun.x
+        balls += gun.bullets
+        gun.bullets.clear()
         next_shoot_time = current_time + gun.delta_time
 
 
@@ -373,10 +374,9 @@ def decay(rock):
         rocks.append(new_rock1)
         rocks.append(new_rock2)
 
-
+# bonus_delta_time = 60000
 def bonuses(bonus_id):
-    global level, active_bonuses, next_bonus_time, current_time
-    bonus_delta_time = 10000
+    global level, active_bonuses, next_bonus_time, current_time, bonus_delta_time
     if (
         active_bonuses.count(bonus_id) < 3
         and bonus_id in arr_bonuses
@@ -482,24 +482,30 @@ def end_menu():
 
 
 def pause():
-    global paused, gun, current_vx, current_vy
+    global paused, gun, current_vx, current_vy, current_vx_b, current_vy_b
     paused = not paused
     if paused == True:
         current_vx=[]
-        current_vx=[]
+        current_vy=[]
+        current_vx_b=[]
+        current_vy_b=[]
         for r in rocks:
             current_vx.append(r.vx)
             current_vy.append(r.vy)
             r.vx = 0
             r.vy = 0
         for b in balls:
+            current_vx_b.append(b.vx)
+            current_vy_b.append(b.vy)
+            b.vx = 0
             b.vy = 0
     else:
         for r in rocks:
             r.vx = current_vx[rocks.index(r)]
             r.vy = current_vy[rocks.index(r)]
         for b in balls:
-            b.vy = -10
+            b.vx = current_vx_b[balls.index(b)]
+            b.vy = current_vy_b[balls.index(b)]
 
 
 def mute():
@@ -517,13 +523,40 @@ def mute():
             die.set_volume(0.5)
             demolish.set_volume(0.5)
             last_mute_click = pygame.time.get_ticks()
+# a=0
+# next_bonus_time=0
+# def imba(score):
+#     global BallsSpeed, accuracy, next_bonus_time, bonus_delta_time
+#     if score>50 and current_time >= next_bonus_time:
+#         a=next_bonus_time
+#         BallsSpeed/=5
+#         accuracy*=3
+#         gun.bullets_max*=10
+#         next_bonus_time = current_time + bonus_delta_time
+    # if score>50 and current_time >= a + bonus_delta_time/6:
+    #     BallsSpeed*=5
+    #     accuracy/=3
+    #     gun.bullets_max//=10
+    
+def guns(score):
+    if 0<=score<300:
+        gun.bullets_max=1
+    if 300<=score<700:
+        gun.bullets_max=2
+    if 700<=score<1200:
+        gun.bullets_max=3
+    if 1200<=score:
+        gun.bullets_max=4
 
 
 def main():
     global score, current_time, max_rocks, level, ball_power, paused
+    
     level = 1 + score // 100
     max_rocks = level
     current_time = pygame.time.get_ticks()
+    guns(score)
+    # imba(score)
 
     for b in balls:
         ball_power = b.power
@@ -552,7 +585,7 @@ def main():
     gun.draw(), hearts()
 
     if not paused:
-        spawn_rock(), gun.move(), collide(), shoot(gun), charge(gun)
+        spawn_rock(), gun.move(), collide(), charge(gun), shoot(gun)
         # print(rocks[0].x)
         # print(rocks[0].spawn_side)
         # print(WIDTH-rocks[0].diag)
@@ -622,7 +655,7 @@ while not finished:
             direction = event.key
         if event.type == KEYUP:
             direction = False
-    
+
     pygame.display.update()
     clock.tick(FPS)
 
