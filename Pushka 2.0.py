@@ -78,6 +78,7 @@ class Ball:
         self.x += self.vx
         if abs(self.gun_0-self.x)>=abs(self.maxx):
             self.vx=0
+            self.x=self.gun_0+self.maxx
 
 
 
@@ -271,7 +272,7 @@ gravity, spawn_k = 2, 1
 after_decay_speed_x, after_decay_speed_y = 5, -5
 BallsSpeed=41
 BallsR=6
-accuracy=1
+accuracy=1.5
 
 
 finished, started, paused, muted, direction = False, False, False, False, False
@@ -570,12 +571,13 @@ def main():
         rock.draw()
         rock.move()
         if rock.HP <= 0:
+            rocks.remove(rock)
             score += rock.level * 10
             demolish.play()
             decay(rock)
             # if rock.luck in range(1, 5):
             # bonuses(random.choice(arr_bonuses))
-            rocks.remove(rock)
+            
 
     font = pygame.font.Font("fonts/Arcade.ttf", 20)
     text = font.render(f"Score:{score}", True, WHITE)
